@@ -13,6 +13,7 @@ import 'package:iconsax/iconsax.dart';
 import 'package:lit_relative_date_time/lit_relative_date_time.dart';
 import 'package:saver_gallery/saver_gallery.dart';
 import 'package:vibration/vibration.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 import '/globals.dart' as g;
 import '/model/firestore.dart';
@@ -77,6 +78,7 @@ class HistorySection extends StatefulWidget {
     required this.relativeDateTimeBuilder,
     required this.friendsList,
     required this.onFilterChanged,
+    this.onDeleteTap, // <-- added optional async delete callback
   });
 
   final Size size;
@@ -91,6 +93,7 @@ class HistorySection extends StatefulWidget {
   final RelativeDateFormatBuilder relativeDateTimeBuilder;
   final List<Users> friendsList;
   final ValueChanged<String?> onFilterChanged;
+  final Future<void> Function()? onDeleteTap; // <-- added
 
   @override
   State<HistorySection> createState() => _HistorySectionState();
@@ -282,6 +285,56 @@ class _HistorySectionState extends State<HistorySection> {
                   Get.snackbar(
                     '❌ Lỗi',
                     'Không thể lưu ảnh',
+                    snackPosition: SnackPosition.BOTTOM,
+                    backgroundColor: Colors.red.withOpacity(0.8),
+                    colorText: white,
+                  );
+                }
+              },
+              // forward async delete callback or provide a safe default that deletes the current image
+              onDeleteTap: widget.onDeleteTap ?? () async {
+                final currentIndex = widget.pageController.hasClients && widget.pageController.page != null
+                    ? widget.pageController.page!.round()
+                    : 0;
+                final currentImage = widget.imageItems.isNotEmpty && currentIndex < widget.imageItems.length
+                    ? widget.imageItems[currentIndex]
+                    : null;
+                if (currentImage == null || currentImage.id == null) return;
+                try {
+                  final imageId = currentImage.id!;
+                  // 1) delete reactions subcollection documents (if any)
+                  final reactionsRef = g.firestore.collection('images').doc(imageId).collection('reactions');
+                  final reactionsSnap = await reactionsRef.get();
+                  for (final doc in reactionsSnap.docs) {
+                    await doc.reference.delete();
+                  }
+
+                  // 2) delete storage file (best-effort)
+                  final url = currentImage.url ?? '';
+                  if (url.isNotEmpty) {
+                    try {
+                      await FirebaseStorage.instance.refFromURL(url).delete();
+                    } catch (e) {
+                      print('⚠️ Storage delete warning: $e');
+                      // continue even if storage deletion fails
+                    }
+                  }
+
+                  // 3) delete image document
+                  await g.firestore.collection('images').doc(imageId).delete();
+
+                  Get.snackbar(
+                    '✅ Đã xóa',
+                    'Ảnh đã được xóa',
+                    snackPosition: SnackPosition.BOTTOM,
+                    backgroundColor: Colors.green.withOpacity(0.8),
+                    colorText: white,
+                  );
+                } catch (e) {
+                  print('❌ Delete image error: $e');
+                  Get.snackbar(
+                    '❌ Lỗi',
+                    'Không thể xóa ảnh: $e',
                     snackPosition: SnackPosition.BOTTOM,
                     backgroundColor: Colors.red.withOpacity(0.8),
                     colorText: white,
@@ -578,6 +631,7 @@ class _BottomSection extends StatelessWidget {
     required this.isKeyboardVisible,
     required this.onEmojiLongPress,
     required this.onEmojiLongPressEnd,
+    this.onDeleteTap, // <-- added optional async delete callback
   });
 
   final List<Images> imageItems;
@@ -591,6 +645,7 @@ class _BottomSection extends StatelessWidget {
   final bool isKeyboardVisible;
   final ValueChanged<String> onEmojiLongPress;
   final VoidCallback onEmojiLongPressEnd;
+  final Future<void> Function()? onDeleteTap; // <-- added
 
   @override
   Widget build(BuildContext context) {
@@ -644,6 +699,56 @@ class _BottomSection extends StatelessWidget {
                 Get.snackbar(
                   '❌ Lỗi',
                   'Không thể lưu ảnh',
+                  snackPosition: SnackPosition.BOTTOM,
+                  backgroundColor: Colors.red.withOpacity(0.8),
+                  colorText: white,
+                );
+              }
+            },
+            // forward async delete callback or provide a safe default that deletes the current image
+            onDeleteTap: onDeleteTap ?? () async {
+              final currentIndex = pageController.hasClients && pageController.page != null
+                  ? pageController.page!.round()
+                  : 0;
+              final currentImage = imageItems.isNotEmpty && currentIndex < imageItems.length
+                  ? imageItems[currentIndex]
+                  : null;
+              if (currentImage == null || currentImage.id == null) return;
+              try {
+                final imageId = currentImage.id!;
+                // 1) delete reactions subcollection documents (if any)
+                final reactionsRef = g.firestore.collection('images').doc(imageId).collection('reactions');
+                final reactionsSnap = await reactionsRef.get();
+                for (final doc in reactionsSnap.docs) {
+                  await doc.reference.delete();
+                }
+
+                // 2) delete storage file (best-effort)
+                final url = currentImage.url ?? '';
+                if (url.isNotEmpty) {
+                  try {
+                    await FirebaseStorage.instance.refFromURL(url).delete();
+                  } catch (e) {
+                    print('⚠️ Storage delete warning: $e');
+                    // continue even if storage deletion fails
+                  }
+                }
+
+                // 3) delete image document
+                await g.firestore.collection('images').doc(imageId).delete();
+
+                Get.snackbar(
+                  '✅ Đã xóa',
+                  'Ảnh đã được xóa',
+                  snackPosition: SnackPosition.BOTTOM,
+                  backgroundColor: Colors.green.withOpacity(0.8),
+                  colorText: white,
+                );
+              } catch (e) {
+                print('❌ Delete image error: $e');
+                Get.snackbar(
+                  '❌ Lỗi',
+                  'Không thể xóa ảnh: $e',
                   snackPosition: SnackPosition.BOTTOM,
                   backgroundColor: Colors.red.withOpacity(0.8),
                   colorText: white,
@@ -752,6 +857,7 @@ class _MessageBarState extends State<_MessageBar> {
         .listen((snap) {
       final items = snap.docs.map((d) {
         final data = d.data();
+        print('[DEBUG] Reaction doc: ${d.id} => $data'); // Log từng document
         return {
           'userId': data['userId'] ?? d.id,
           'userName': data['userName'] ?? '',
@@ -763,6 +869,10 @@ class _MessageBarState extends State<_MessageBar> {
 
       final mine = items.firstWhereOrNull((e) => e['userId'] == widget.currentUid);
 
+      print('[DEBUG] Current UID: ${widget.currentUid}');
+      print('[DEBUG] All reactions: $items');
+      print('[DEBUG] Mine: $mine');
+
       setState(() {
         _myReaction = mine?['emoji'] as String?;
         _reactionCounts = {
@@ -771,6 +881,7 @@ class _MessageBarState extends State<_MessageBar> {
           '🔥': items.where((e) => e['emoji'] == '🔥').length,
         };
         _othersReactions = items.where((e) => e['userId'] != widget.currentUid).toList();
+        print('[DEBUG] Others reactions: $_othersReactions');
       });
     });
   }
@@ -791,9 +902,9 @@ class _MessageBarState extends State<_MessageBar> {
     }
 
     await doc.set({
-      'userId': widget.currentUid,
-      'userName': widget.userName,
-      'avatar': widget.profilePicUrl,
+      'userId': widget.currentUid, // người đang đăng nhập
+      'userName': widget.userName, // phải là tên người đăng nhập
+      'avatar': widget.profilePicUrl, // phải là avatar người đăng nhập
       'emoji': emoji,
       'timestamp': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
@@ -944,6 +1055,7 @@ class _MessageBarState extends State<_MessageBar> {
   }
 
   Widget _buildOwnerView() {
+    print('[DEBUG] BuildOwnerView - _othersReactions: $_othersReactions');
     if (_othersReactions.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -983,6 +1095,7 @@ class _MessageBarState extends State<_MessageBar> {
           separatorBuilder: (_, __) => const SizedBox(width: 12),
           itemBuilder: (context, index) {
             final r = _othersReactions[index];
+            print('[DEBUG] OwnerView reaction: $r');
             final avatar = (r['avatar'] ?? '').toString();
             final uname = (r['userName'] ?? '').toString();
             final emoji = (r['emoji'] ?? '❤️').toString();
@@ -1016,6 +1129,12 @@ class _MessageBarState extends State<_MessageBar> {
   }
 
   Widget _buildViewerView() {
+    final isMyPost = widget.currentImage?.uid == widget.currentUid;
+    // Nếu là chủ ảnh, không cho gửi reaction
+    if (isMyPost) {
+      return const SizedBox.shrink();
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Container(
@@ -1190,11 +1309,13 @@ class _HistoryFooter extends StatelessWidget {
     required this.onJumpToCamera,
     required this.onGridTap,
     required this.onDownloadTap,
+    required this.onDeleteTap, // <-- added async delete callback
   });
 
   final VoidCallback onJumpToCamera;
   final VoidCallback onGridTap;
   final VoidCallback onDownloadTap;
+  final Future<void> Function() onDeleteTap; // <-- added
 
   @override
   Widget build(BuildContext context) {
@@ -1232,7 +1353,7 @@ class _HistoryFooter extends StatelessWidget {
           
           // ✅ 3. Menu 3 chấm (PHẢI)
           GestureDetector(
-            onTap: () => _showActionMenu(context, onDownloadTap),
+            onTap: () => _showActionMenu(context, onDownloadTap, onDeleteTap),
             child: Container(
               width: 50,
               height: 50,
@@ -1249,21 +1370,22 @@ class _HistoryFooter extends StatelessWidget {
     );
   }
 
-  void _showActionMenu(BuildContext context, VoidCallback onDownloadTap) {
+  void _showActionMenu(BuildContext context, VoidCallback onDownloadTap, Future<void> Function() onDeleteTap) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isDismissible: true, // ✅ Bấm ra ngoài để đóng
-      builder: (context) => _ActionMenuSheet(onDownloadTap: onDownloadTap),
+      builder: (context) => _ActionMenuSheet(onDownloadTap: onDownloadTap, onDeleteTap: onDeleteTap),
     );
   }
 }
 
 // ✅ MENU ACTIONS BOTTOM SHEET
 class _ActionMenuSheet extends StatelessWidget {
-  const _ActionMenuSheet({required this.onDownloadTap});
+  const _ActionMenuSheet({required this.onDownloadTap, required this.onDeleteTap});
   
   final VoidCallback onDownloadTap;
+  final Future<void> Function() onDeleteTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1314,9 +1436,42 @@ class _ActionMenuSheet extends StatelessWidget {
               icon: Icons.delete,
               label: 'Xóa',
               color: Colors.red,
-              onTap: () {
+              onTap: () async {
                 Navigator.pop(context);
-                _confirmDelete(context);
+                final confirm = await Get.dialog<bool>(
+                  AlertDialog(
+                    backgroundColor: secondaryColor,
+                    title: Text('Xóa ảnh?', style: GoogleFonts.inter(color: white)),
+                    content: Text(
+                      'Hành động này không thể hoàn tác.',
+                      style: GoogleFonts.inter(color: Colors.white70),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Get.back(result: false),
+                        child: Text('Hủy', style: GoogleFonts.inter(color: white)),
+                      ),
+                      TextButton(
+                        onPressed: () => Get.back(result: true),
+                        child: Text('Xóa', style: GoogleFonts.inter(color: Colors.red)),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirm == true) {
+                  try {
+                    await onDeleteTap();
+                  } catch (e) {
+                    print('❌ Delete via menu error: $e');
+                    Get.snackbar(
+                      '❌ Lỗi',
+                      'Không thể xóa ảnh: $e',
+                      snackPosition: SnackPosition.BOTTOM,
+                      backgroundColor: Colors.red.withOpacity(0.8),
+                      colorText: white,
+                    );
+                  }
+                }
               },
             ),
             
@@ -1345,40 +1500,6 @@ class _ActionMenuSheet extends StatelessWidget {
       backgroundColor: primaryColor.withOpacity(0.8),
       colorText: white,
     );
-  }
-
-  Future<void> _confirmDelete(BuildContext context) async {
-    final confirm = await Get.dialog<bool>(
-      AlertDialog(
-        backgroundColor: secondaryColor,
-        title: Text('Xóa ảnh?', style: GoogleFonts.inter(color: white)),
-        content: Text(
-          'Hành động này không thể hoàn tác.',
-          style: GoogleFonts.inter(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(result: false),
-            child: Text('Hủy', style: GoogleFonts.inter(color: white)),
-          ),
-          TextButton(
-            onPressed: () => Get.back(result: true),
-            child: Text('Xóa', style: GoogleFonts.inter(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-    
-    if (confirm == true) {
-      // TODO: Implement delete
-      Get.snackbar(
-        '✅ Đã xóa',
-        'Ảnh đã được xóa',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.green.withOpacity(0.8),
-        colorText: white,
-      );
-    }
   }
 }
 

@@ -570,9 +570,9 @@ class _MainScreenState extends State<MainScreen>
                                 setState(() => currentPageIndex = value);
                                 _updateUserInfoForIndex(value);
                               },
-                              profilePicUrl: profilePicUrl,
-                              userName: userName,
-                              currentUid: userStorage.read('uid') ?? '',
+                              profilePicUrl: userStorage.read('profileUrl') ?? '', // avatar của người đăng nhập
+                              userName: userStorage.read('name') ?? '',           // tên của người đăng nhập
+                              currentUid: userStorage.read('uid') ?? '',          // uid của người đăng nhập
                               onReplyTap: replyDialog,
                               onJumpToCamera: () {
                                 _resumeCameraPreview();

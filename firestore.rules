@@ -62,9 +62,12 @@ service cloud.firestore {
         // READ: Ai cũng đọc được (để hiển thị reactions)
         allow read: if request.auth != null;
         
-        // WRITE: Chỉ chủ reaction (userId == auth.uid)
+        // WRITE: Chủ reaction hoặc chủ ảnh được phép xóa
         allow write: if request.auth != null
-                     && userId == request.auth.uid;
+                     && (
+                          userId == request.auth.uid
+                          || get(/databases/$(database)/documents/images/$(imageId)).data.uid == request.auth.uid
+                        );
       }
     }
 
