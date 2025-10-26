@@ -1,64 +1,54 @@
-import 'package:flutter/material.dart';
-import 'package:get/get.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'firebase_options.dart'; // nếu đang dùng flutterfire configure
+import 'dart:io';
 
-import 'src/services/auth_service.dart';
-import 'src/services/post_service.dart';
-import 'src/services/storage_service.dart';
-import 'src/controllers/auth_controller.dart';
-import 'src/controllers/feed_controller.dart';
-import 'src/controllers/upload_controller.dart';
-import 'src/ui/auth/sign_in_page.dart';
-import 'src/ui/home/home_page.dart';
+import 'package:camera/camera.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:get/get_navigation/src/root/get_material_app.dart';
+import 'package:get_storage/get_storage.dart';
+import '/screens/screens.dart';
+import 'globals.dart' as globals;
+import 'utils/colors.dart';
+
+import 'package:get/get.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // 👉 Quan trọng: chỉ init khi CHƯA có app nào
-  if (Firebase.apps.isEmpty) {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-      // Nếu bạn dùng "plan B" không có firebase_options.dart thì dùng:
-      // await Firebase.initializeApp();
-    );
-  } else {
-    // Lấy instance hiện có (tránh ném lỗi)
-    Firebase.app();
+  globals.cameras = await availableCameras();
+  FocusManager.instance.primaryFocus?.unfocus();
+  await Firebase.initializeApp();
+  
+  if (Platform.isAndroid) {
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+      systemNavigationBarColor: backgroundColor,
+    ));
+  } else if (Platform.isIOS) {
+    CupertinoNavigationBar(backgroundColor: backgroundColor);
   }
+  await GetStorage.init();
 
-  // DI
-  final authService = AuthService();
-  final postService = PostService();
-  final storageService = StorageService();
-
-  Get.put(AuthController(authService));
-  Get.put(FeedController(postService));
-  Get.put(UploadController(storage: storageService, posts: postService));
-
-  runApp(const BubbleCamApp());
+  final user = FirebaseAuth.instance.currentUser;
+  
+  runApp(MyApp(isLoggedIn: user != null));
 }
 
-class BubbleCamApp extends StatelessWidget {
-  const BubbleCamApp({super.key});
+class MyApp extends StatelessWidget {
+  final bool isLoggedIn;
+
+  const MyApp({super.key, required this.isLoggedIn});
 
   @override
   Widget build(BuildContext context) {
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     return GetMaterialApp(
       title: 'BubbleCam',
-      theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.pink),
-      home: StreamBuilder<User?>(
-        stream: FirebaseAuth.instance.authStateChanges(),
-        builder: (c, s) {
-          if (s.connectionState == ConnectionState.waiting) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
-          }
-          return s.hasData ? const HomePage() : const SignInPage();
-        },
+      theme: ThemeData.dark().copyWith(
+        scaffoldBackgroundColor: backgroundColor,
       ),
+      debugShowCheckedModeBanner: false,
+      home: isLoggedIn ? MainScreen() : WelcomeScreen(),
     );
   }
 }

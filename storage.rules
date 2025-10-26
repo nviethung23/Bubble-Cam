@@ -1,9 +1,46 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    match /posts/{uid}/{allPaths=**} {
-      allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == uid;
+    
+    // ===== IMAGES FOLDER =====
+    // Đường dẫn: images/{userId}/{imageId}
+    match /images/{userId}/{imageId} {
+      
+      // READ: Ai cũng đọc được (vì đã check ở Firestore)
+      allow read: if request.auth != null;
+      
+      // WRITE: Chỉ upload vào folder của chính mình
+      allow write: if request.auth != null 
+                   && request.auth.uid == userId
+                   && request.resource.size < 10 * 1024 * 1024  // Max 10MB
+                   && request.resource.contentType.matches('image/.*');  // Chỉ image
+      
+      // DELETE: Chỉ xóa ảnh của mình
+      allow delete: if request.auth != null 
+                    && request.auth.uid == userId;
+    }
+    
+    // ===== PROFILE IMAGES FOLDER =====
+    // Đường dẫn: profile_images/{userId}
+    match /profile_images/{userId} {
+      
+      // READ: Ai cũng đọc được
+      allow read: if request.auth != null;
+      
+      // WRITE: Chỉ upload avatar của mình
+      allow write: if request.auth != null 
+                   && request.auth.uid == userId
+                   && request.resource.size < 5 * 1024 * 1024  // Max 5MB
+                   && request.resource.contentType.matches('image/.*');
+      
+      // DELETE: Chỉ xóa avatar của mình
+      allow delete: if request.auth != null 
+                    && request.auth.uid == userId;
+    }
+    
+    // ===== FALLBACK: Chặn tất cả =====
+    match /{allPaths=**} {
+      allow read, write: if false;
     }
   }
 }

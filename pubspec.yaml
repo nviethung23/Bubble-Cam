@@ -1,4 +1,4 @@
-name: bubblecam
+name: BubbleCam
 description: BubbleCam - realtime photo sharing with likes & comments
 publish_to: "none"
 
@@ -8,20 +8,62 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  firebase_core: ^2.30.1
-  firebase_auth: ^4.19.1
-  cloud_firestore: ^4.17.3
-  firebase_storage: ^11.7.2
+
+  # ===== FlutterFire (đồng bộ thế hệ) =====
+  firebase_core: ^3.8.0
+  firebase_auth: ^5.3.3
+  cloud_firestore: ^5.5.0
+  firebase_storage: ^12.3.1
+  firebase_messaging: ^15.1.3
+  firebase_app_check: ^0.3.0
   google_sign_in: ^6.2.1
-  image_picker: ^1.0.7
+
+  # ===== Camera & media =====
+  camera: ^0.11.1
+  image_picker: ^1.1.2
+  image: ^4.5.4
+  image_cropper: ^11.0.0
+  video_player: ^2.9.1
+  video_thumbnail: ^0.5.6
+  flutter_image_compress: ^2.4.0
+  path_provider: ^2.1.4
+  saver_gallery: ^4.0.0
+  # ===== UI / State / Utils =====
+  get: ^4.6.6
+  get_storage: ^2.1.1
+  flutter_keyboard_visibility: ^6.0.0
+  permission_handler: ^11.3.1
   cached_network_image: ^3.3.1
+  google_fonts: ^4.0.3
+  cupertino_icons: ^1.0.2
+  iconsax: ^0.0.8
+  intl: ^0.20.2
   timeago: ^3.6.1
   uuid: ^4.4.0
-  get: ^4.6.6
+  url_launcher: ^6.1.10
+  lit_relative_date_time: ^1.2.0
+  phone_form_field: ^7.0.6
+  flutter_contacts: ^1.1.9+2
+  home_widget: ^0.8.1
+  vibration: ^3.1.4
+
+  # ===== Networking / Reactive / BLoC (runtime) =====
+  dio: ^5.5.0+1
+  flutter_bloc: ^8.1.5
+  equatable: ^2.0.5
+  rxdart: ^0.27.3
+  pinput: ^5.0.2
+  share_plus: ^12.0.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_lints: ^4.0.0
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/google_g.png
+  
+     

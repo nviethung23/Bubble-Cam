@@ -23,6 +23,14 @@
           }
         },
         {
+          "client_id": "798686492351-g4aeps8ef1ohamek2o3kb36dcjte81u7.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.bubblecam",
+            "certificate_hash": "9f4dcefb30051b2b80b0920b1f037806adaacd8fc1e8de42e6e1cda8085e6e56"
+          }
+        },
+        {
           "client_id": "798686492351-22hrfjprnc2uefu2h5a8tcsoger1kf4g.apps.googleusercontent.com",
           "client_type": 3
         }
